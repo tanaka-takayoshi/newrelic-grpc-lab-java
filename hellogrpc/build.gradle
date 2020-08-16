@@ -1,0 +1,96 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        jcenter()
+        maven { url 'http://repo.spring.io/plugins-release' }
+        maven { url "https://plugins.gradle.org/m2/" }
+
+    }
+    dependencies {
+        classpath "com.jfrog.bintray.gradle:gradle-bintray-plugin:1.5"
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.11'
+        classpath "org.jfrog.buildinfo:build-info-extractor-gradle:4.0.0"
+        classpath 'com.palantir:jacoco-coverage:0.4.0'
+        classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.21.1"
+        classpath "de.marcphilipp.gradle:nexus-publish-plugin:0.4.0"
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:1.5.13.RELEASE")
+    }
+}
+
+plugins {
+    id 'java'
+    id 'war'
+}
+
+apply plugin: 'com.google.protobuf'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'java'
+
+group 'jp.co.newrelic.labs'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+
+    compile "org.springframework.boot:spring-boot-starter-actuator"
+    compile 'org.springframework.boot:spring-boot-starter-web'
+    compile 'io.github.lognet:grpc-spring-boot-starter:3.5.6'
+    compile group: 'com.newrelic.agent.java', name: 'newrelic-api', version: '5.13.0'
+    testCompile 'org.springframework.boot:spring-boot-starter-aop'
+    testCompile 'org.springframework.boot:spring-boot-starter-test'
+    testCompile 'com.github.stefanbirkner:system-rules:1.18.0'
+    ["annotationProcessor", "testAnnotationProcessor", "compileOnly", "testCompileOnly"].each { conf ->
+        add(conf, "org.projectlombok:lombok:1.18.12")
+    }
+}
+sourceSets {
+    main {
+        java {
+            srcDir 'src/main/protoGen'
+        }
+    }
+}
+
+protobuf {
+    protoc {
+        artifact = 'com.google.protobuf:protoc:3.5.1'
+    }
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:1.30.2"
+        }
+    }
+
+    generateProtoTasks {
+        ofSourceSet('main').each { task ->
+            task.builtins {
+                java{
+                    outputSubDir = 'protoGen'
+                }
+            }
+            task.plugins {
+                grpc {
+                    outputSubDir = 'protoGen'
+                }
+            }
+        }
+    }
+    generatedFilesBaseDir = "$projectDir/src/"
+}
+
+task cleanProtoGen{
+    doFirst{
+        delete("$projectDir/src/main/protoGen")
+    }
+}
+clean.dependsOn cleanProtoGen
+bootRepackage.enabled  =false
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-starter-parent:1.5.13.RELEASE"
+    }
+}
